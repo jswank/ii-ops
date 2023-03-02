@@ -4,8 +4,6 @@ USER root
 
 RUN apk add -U --no-cache postgresql-client aws-cli
 
-COPY home/bin/* /home/cli/bin
-
-RUN chown -R cli:cli /home/cli
+COPY --chown=cli:cli home/bin/* bin/
 
 USER cli
