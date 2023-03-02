@@ -109,10 +109,10 @@ main() {
 
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "pg_dump -d \"sslmode=require\" -Fc -f ${BACKUP_DIR}/${backup_file}"
-    echo "ln -sf ${backup_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
+    echo "ln -sf ${backup_file} ${BACKUP_DIR}/${PGDATABASE}.latest"
   else
     pg_dump -d "sslmode=require" -Fc -f "${BACKUP_DIR}/${backup_file}"
-    ln -sf "${backup_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
+    ln -sf "${backup_file}" "${BACKUP_DIR}/${PGDATABASE}.latest"
   fi
 
   # remove backup files in excess of the limit
