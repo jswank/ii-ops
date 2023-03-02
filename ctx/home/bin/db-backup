@@ -5,22 +5,30 @@ set -o nounset
 
 usage(){
   cat <<EOF
-Use pg_dump to create a backup of a postres database. 
+Use pg_dump to create a backup of a postres database. Then copy it to an S3
+bucket.
 
-Usage: db-backup [flags]
+Usage: db-backup [flags] [<database>]
+
+Parameters:
+  <database>              name of the database.  
 
 Flags:
   -h                      display this help
   -n                      dry run: do not perform geocoding lookup- just print url
 
+
 Environment:
-  BACKUP_DIR   Directory to write backups
-  NUM_BACKUPS  Number of backups to retain. Default: 10
+  BACKUP_DIR   Local directory to write backups
+  NUM_BACKUPS  Number of backups to retain locally. Default: 10
+  S3_BUCKET    Name of the S3 bucket: if unset, an S3 copy will not occur
+  S3_PATH      S3 path to write backups. The path requires a trailing slash. Default: /.
   PGDATABASE
   PGHOST
   PGPORT
   PGUSER
   PGPASSWORD
+  AWS*
 
 Description: 
 
@@ -38,11 +46,15 @@ NUM_BACKUPS (default 10) will be retained.
 EOF
 }
 
-BACKUP_DIR=${BACKUP_DIR:=/var/tmp}
-export NUM_BACKUPS=${NUM_BACKUPS:=10}
-DRYRUN=0          
 
-PGDUMP_CMD="pg_dump -d 'sslmode=require' -Fc -v"
+# set defaults for vars that are required
+PGDATABASE=${PGDATABASE:=""}
+BACKUP_DIR=${BACKUP_DIR:=/var/tmp/db}
+S3_BUCKET=${S3_BUCKET:=""}
+S3_PATH=${S3_PATH:=""}
+# needs to be exported for perl subshell
+export NUM_BACKUPS=${NUM_BACKUPS:=10} 
+DRYRUN=0          
 
 fail() {
   echo $1 >&2
@@ -66,6 +78,15 @@ init() {
   done
 
   shift $((OPTIND-1))
+
+  if [[ $# -gt 0 ]]; then
+    PGDATABASE=$1
+  fi
+
+  if [[ -z ${PGDATABASE} ]]; then
+    fail "A database was not specified via environment or as a parameter"
+  fi
+
   
 }
 
@@ -74,12 +95,22 @@ main() {
   init $*
 
   # the guts of the script
+ 
+  # create the backup directory if required
+  if [[ ! -d ${BACKUP_DIR} ]]; then
+    if [[ $DRYRUN -eq 0 ]]; then 
+      mkdir ${BACKUP_DIR} || fail "unable to create directory ${BACKUP_DIR}"
+    fi
+  elif [[ ! -w ${BACKUP_DIR} ]]; then
+    fail "${BACKUP_DIR} is not writable"
+  fi
+ 
   backup_file="${PGDATABASE}-$(date --iso-8601=seconds)"
 
   if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "pg_dump -d \"sslmode=require\" -Fc -v $PGDUMP_CMD -f ${BACKUP_DIR}/${backup_file}"
+    echo "pg_dump -d \"sslmode=require\" -Fc -f ${BACKUP_DIR}/${backup_file}"
   else
-    pg_dump -d "sslmode=require" -Fc -v -f "${BACKUP_DIR}/${backup_file}"
+    pg_dump -d "sslmode=require" -Fc -f "${BACKUP_DIR}/${backup_file}"
   fi
 
   # remove backup files in excess of the limit
@@ -88,15 +119,26 @@ main() {
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "rm -f ${files_to_rm}"
   else
-    rm -f ${files_to_rm}
+    rm -f "${files_to_rm}"
   fi
 
-  # create a symlink to the most recent file
+  # copy the most recent file
   most_recent_file=$(find ${BACKUP_DIR} -name "${PGDATABASE}-*" -print | sort | head -1)
   if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "ln -sf ${most_recent_file} ${BACKUP_DIR}/latest"
+    echo "cp ${most_recent_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
   else
-    ln -sf ${most_recent_file} ${BACKUP_DIR}/latest
+    cp "${most_recent_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
+  fi
+
+  if [[ -z ${S3_BUCKET} ]]; then
+    exit
+  fi
+
+  # copy files to S3
+  if [[ ${DRYRUN} -eq 1 ]]; then
+    echo "rclone copy ${BACKUP_DIR}/ backups:${S3_BUCKET}/${S3_PATH}"
+  else
+    rclone copy "${BACKUP_DIR}/" "backups:${S3_BUCKET}/${S3_PATH}"
   fi
 
 }
