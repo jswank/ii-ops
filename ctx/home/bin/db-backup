@@ -109,8 +109,10 @@ main() {
 
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "pg_dump -d \"sslmode=require\" -Fc -f ${BACKUP_DIR}/${backup_file}"
+    echo "ln -sf ${backup_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
   else
     pg_dump -d "sslmode=require" -Fc -f "${BACKUP_DIR}/${backup_file}"
+    ln -sf "${backup_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
   fi
 
   # remove backup files in excess of the limit
@@ -122,14 +124,6 @@ main() {
     rm -f "${files_to_rm}"
   fi
 
-  # copy the most recent file
-  most_recent_file=$(find ${BACKUP_DIR} -name "${PGDATABASE}-*" -print | sort | head -1)
-  if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "ln -sf ${most_recent_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
-  else
-    ln -sf "${most_recent_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
-  fi
-
   if [[ -z ${S3_BUCKET} ]]; then
     exit
   fi
@@ -138,7 +132,7 @@ main() {
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "aws s3 sync ${BACKUP_DIR}/ backups:${S3_BUCKET}/${S3_PATH}"
   else
-    aws s3 sync "${BACKUP_DIR}/" "backups:${S3_BUCKET}/${S3_PATH}"
+    aws s3 sync --follow-symlinks "${BACKUP_DIR}/" "s3://${S3_BUCKET}/${S3_PATH}"
   fi
 
 }
