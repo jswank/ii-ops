@@ -105,7 +105,7 @@ main() {
     fail "${BACKUP_DIR} is not writable"
   fi
  
-  backup_file="${PGDATABASE}-$(date --iso-8601=seconds)"
+  backup_file="${PGDATABASE}.$(date --iso-8601=seconds)"
 
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "pg_dump -d \"sslmode=require\" -Fc -f ${BACKUP_DIR}/${backup_file}"
@@ -116,7 +116,7 @@ main() {
   fi
 
   # remove backup files in excess of the limit
-  files_to_rm=$(find ${BACKUP_DIR} -name "${PGDATABASE}-*" -print | sort | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}')
+  files_to_rm=$(find ${BACKUP_DIR} -name "${PGDATABASE}.*" -print | sort | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}')
 
   if [[ ${DRYRUN} -eq 1 ]]; then
     echo "rm -f ${files_to_rm}"
