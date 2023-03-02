@@ -2,7 +2,6 @@
 
 set -o errexit
 set -o nounset
-set -o xtrace
 
 usage(){
   cat <<EOF
@@ -95,9 +94,9 @@ main() {
   # create a symlink to the most recent file
   most_recent_file=$(find ${BACKUP_DIR} -name "${PGDATABASE}-*" -print | sort | head -1)
   if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "ln -sf ${most_recent_file} latest"
+    echo "ln -sf ${most_recent_file} ${BACKUP_DIR}/latest"
   else
-    ln -sf ${most_recent_file} latest
+    ln -sf ${most_recent_file} ${BACKUP_DIR}/latest
   fi
 
 }
