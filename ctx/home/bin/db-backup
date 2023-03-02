@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-
+#
+# Backup a Postgres database and optionally copy it to an S3 bucket.
+#
+# Requirements: pg_dump aws
+#
+# Copyright Jason Swank <jswank@scalene.net>
+#
+######
 set -o errexit
 set -o nounset
 
 usage(){
   cat <<EOF
-Use pg_dump to create a backup of a postres database. Then copy it to an S3
-bucket.
+Backup a Postgres database and optionally copy it to an S3 bucket.
 
 Usage: db-backup [flags] [<database>]
 
@@ -16,7 +22,6 @@ Parameters:
 Flags:
   -h                      display this help
   -n                      dry run: do not perform geocoding lookup- just print url
-
 
 Environment:
   BACKUP_DIR   Local directory to write backups
