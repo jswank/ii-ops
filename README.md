@@ -31,6 +31,6 @@ docker run --env-file .env --rm ghcr.io/jswank/ops:latest dbname
 docker run --env-file .env --rm ghcr.io/jswank/ops:latest bash -x bin/db/backup
 
 # storing a copy on the host machine
-mkdir /home/infinite/backups && sudo chown 1000:1000 /home/infinite/backups
+sudo mkdir -p /home/infinite/backups && sudo chown 1000:1000 /home/infinite/backups
 docker run --env-file ops.env -v /home/infinite/backups:/var/tmp/backups --rm ghcr.io/jswank/ops:latest
 ```
