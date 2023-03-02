@@ -125,9 +125,9 @@ main() {
   # copy the most recent file
   most_recent_file=$(find ${BACKUP_DIR} -name "${PGDATABASE}-*" -print | sort | head -1)
   if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "cp ${most_recent_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
+    echo "ln -sf ${most_recent_file} ${BACKUP_DIR}/${PGDATABASE}-latest"
   else
-    cp "${most_recent_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
+    ln -sf "${most_recent_file}" "${BACKUP_DIR}/${PGDATABASE}-latest"
   fi
 
   if [[ -z ${S3_BUCKET} ]]; then
@@ -136,9 +136,9 @@ main() {
 
   # copy files to S3
   if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "rclone copy ${BACKUP_DIR}/ backups:${S3_BUCKET}/${S3_PATH}"
+    echo "aws s3 sync ${BACKUP_DIR}/ backups:${S3_BUCKET}/${S3_PATH}"
   else
-    rclone copy "${BACKUP_DIR}/" "backups:${S3_BUCKET}/${S3_PATH}"
+    aws s3 sync "${BACKUP_DIR}/" "backups:${S3_BUCKET}/${S3_PATH}"
   fi
 
 }
