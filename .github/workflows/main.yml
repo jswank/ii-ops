@@ -1,0 +1,28 @@
+name: Build & Release
+
+on:
+  pull_request:
+    branches:
+    - '*'
+  push:
+    branches:
+    - main
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install pre-reqs
+        run: sudo snap install --edge just --classic
+      - name: checkout
+        uses: actions/checkout@v1
+      - name: build
+        run: just build
+      - name: publish
+        run: just publish
+        env:
+          GH_PAT: ${{ secrets.GITHUB_TOKEN }}
