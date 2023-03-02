@@ -11,3 +11,6 @@ publish:
   @ echo $GH_PAT | docker login ghcr.io -u jswank --password-stdin >/dev/null 2>&1
   docker push {{image}}
   @ docker logout ghcr.io
+
+clean:
+  docker rmi {{image}}
