@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 #
 # Backup a Postgres database and optionally copy it to an S3 bucket.
 #
@@ -21,12 +21,12 @@ Parameters:
 
 Flags:
   -h                      display this help
-  -n                      dry run: do not perform geocoding lookup- just print url
+  -n                      dry run: just print actions that would happen
 
 Environment:
   BACKUP_DIR   Local directory to write backups
   NUM_BACKUPS  Number of backups to retain locally. Default: 10
-  S3_BUCKET    Name of the S3 bucket: if unset, an S3 copy will not occur
+  S3_BUCKET    Name of the S3 bucket. If unset, an S3 copy will not occur
   S3_PATH      S3 path to write backups. The path requires a trailing slash. Default: /.
   PGDATABASE
   PGHOST
@@ -58,11 +58,11 @@ BACKUP_DIR=${BACKUP_DIR:=/var/tmp/backups}
 S3_BUCKET=${S3_BUCKET:=""}
 S3_PATH=${S3_PATH:=""}
 # needs to be exported for perl subshell
-export NUM_BACKUPS=${NUM_BACKUPS:=10} 
+export NUM_BACKUPS="${NUM_BACKUPS:=10}"
 DRYRUN=0          
 
 fail() {
-  echo $1 >&2
+  printf '%s\n' "$1" >&2
   exit 1
 }
 
@@ -84,11 +84,11 @@ init() {
 
   shift $((OPTIND-1))
 
-  if [[ $# -gt 0 ]]; then
-    PGDATABASE=$1
+  if [ $# -gt 0 ]; then
+    PGDATABASE="$1"
   fi
 
-  if [[ -z ${PGDATABASE} ]]; then
+  if [ -z "${PGDATABASE}" ]; then
     fail "A database was not specified via environment or as a parameter"
   fi
 
@@ -97,49 +97,53 @@ init() {
 
 main() {
   # run the init code
-  init $*
+  init "$@"
 
   # the guts of the script
  
   # create the backup directory if required
-  if [[ ! -d ${BACKUP_DIR} ]]; then
-    if [[ $DRYRUN -eq 0 ]]; then 
-      mkdir ${BACKUP_DIR} || fail "unable to create directory ${BACKUP_DIR}"
+  if [ ! -d "${BACKUP_DIR}" ]; then
+    if [ $DRYRUN -eq 0 ]; then 
+      mkdir "${BACKUP_DIR}" || fail "unable to create directory ${BACKUP_DIR}"
     fi
-  elif [[ ! -w ${BACKUP_DIR} ]]; then
+  elif [ ! -w "${BACKUP_DIR}" ]; then
     fail "${BACKUP_DIR} is not writable"
   fi
  
   backup_file="${PGDATABASE}.$(date --iso-8601=seconds)"
 
-  if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "pg_dump -d \"sslmode=require\" -Fc -f ${BACKUP_DIR}/${backup_file}"
-    echo "ln -sf ${backup_file} ${BACKUP_DIR}/${PGDATABASE}.latest"
+  if [ ${DRYRUN} -eq 1 ]; then
+    printf 'pg_dump -d "sslmode=require" -Fc -f %s\n' "${BACKUP_DIR}/${backup_file}"
+    printf 'ln -sf %s %s\n' "${backup_file}" "${BACKUP_DIR}/${PGDATABASE}.latest"
   else
     pg_dump -d "sslmode=require" -Fc -f "${BACKUP_DIR}/${backup_file}"
     ln -sf "${backup_file}" "${BACKUP_DIR}/${PGDATABASE}.latest"
   fi
 
   # remove backup files in excess of the limit
-  files_to_rm=$(find ${BACKUP_DIR} -name "${PGDATABASE}.*" -print | sort | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}')
-
-  if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "rm -f ${files_to_rm}"
+  if [ ${DRYRUN} -eq 1 ]; then
+    find "${BACKUP_DIR}" -name "${PGDATABASE}.*" -print \
+      | sort \
+      | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}' \
+      | xargs
   else
-    rm -f "${files_to_rm}"
+    find "${BACKUP_DIR}" -name "${PGDATABASE}.*" -print \
+      | sort \
+      | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}' \
+      | xargs rm
   fi
 
-  if [[ -z ${S3_BUCKET} ]]; then
+  if [ -z "${S3_BUCKET}" ]; then
     exit
   fi
 
   # copy files to S3
-  if [[ ${DRYRUN} -eq 1 ]]; then
-    echo "aws s3 sync ${BACKUP_DIR}/ backups:${S3_BUCKET}/${S3_PATH}"
+  if [ ${DRYRUN} -eq 1 ]; then
+    printf 'aws s3 cp %s %s\n' "${BACKUP_DIR}/${backup_file}" "backups:${S3_BUCKET}/${S3_PATH}/${backup_file}"
   else
-    aws s3 sync --follow-symlinks "${BACKUP_DIR}/" "s3://${S3_BUCKET}/${S3_PATH}"
+    aws s3 cp "${BACKUP_DIR}/${backup_file}" "s3://${S3_BUCKET}/${S3_PATH}/${backup_file}" >/dev/null
   fi
 
 }
 
-main $*
+main "$@"
