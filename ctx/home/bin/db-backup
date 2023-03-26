@@ -125,14 +125,14 @@ main() {
   #  perl '' => print line if line number greater than NUM_BACKUPS 
   if [ ${DRYRUN} -eq 1 ]; then                           
     find "${BACKUP_DIR}" -name "${PGDATABASE}.*" -print \
-      | sort -r \                                     
+      | sort -r \
       | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}' \
-      | xargs                                            
+      | xargs
   else                                                                 
     find "${BACKUP_DIR}" -name "${PGDATABASE}.*" -print \
-      | sort -r \                                     
+      | sort -r \
       | perl -nE 'print if $. >$ENV{q/NUM_BACKUPS/}' \
-      | xargs rm                                              
+      | xargs rm -f
   fi
 
   # create a symlink to the most recent file
